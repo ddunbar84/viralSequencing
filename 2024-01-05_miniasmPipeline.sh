@@ -1,4 +1,6 @@
 
+## MINIASM PIPELINE WITHOUT FLYE DE NOVO ASSEMBLY ##
+
 # Stout to file for error checking
 
 {
@@ -140,190 +142,9 @@ do
 
     #/software/bbmap-v38.90/reformat.sh in=/home3/dd87a/"$project"/porechop/"$folderName"_mapped.fastq  out=/home3/dd87a/"$project"/demulti_trim/"$folderName"/"$folderName"_mappedF.fastq  minlength=200
 
-done    
+done  
 
-##### ### GENERATE DRAFT DE NOVO GENOME ASSEMBLIES AS INPUT FOR MEDAKA ###
-
-### FLYE ASSEMBLY TO USE WITH MEDAKA
-
-#for sample in /home3/dd87a/"$project"/demulti_trim/*/*_mappedF.fastq ; 
-for sample in /home3/dd87a/"$project"/porechop/*.fastq ; 
-
-do
-
-	sample=`echo "$sample" | sed -e 's/^.*porechop\///' | sed -e 's/\.fastq$//'`
-
-    sampleID=`echo "$sample" | sed -e 's/^.*\/barcode..\///' | sed -e 's/_mapped\.fastq$//'`
-       
-    /software/flye-v2.9.1/bin/flye --nano-hq "$sample"_mapped.fastq --out-dir /home3/dd87a/"$project"/draftAssembly/"$sampleID" --genome-size=135000 --iterations 4
-
-done
-
-# Rename files and move folder, so they are all in one folder location for next steps
-
-for assembly in /home3/dd87a/"$project"/draftAssembly/*/assembly.fasta;
-
-do 
-
-	sampleID=`echo "$assembly" | sed -e 's/^.*Assembly\///' | sed -e 's/Chop.*.fasta$//'`
-
-	cp "$assembly" /home3/dd87a/"$project"/draftAssembly/"$sampleID"Assembly.fastq
-
-done
-
-
-##### ### ASSESS QUALITY OF THE DE NOVO CONTIGS GENERATED WITH FLYE ###
-
-### NOT WORKING QUAST NEEDS PYTHON 2!!
-
-# for draftAssembly in /home3/dd87a/"$project"/draftAssembly/*/assembly.fasta ; 
-
-# do
-
-# 		#sample=`echo "$sample" | sed -e 's/^.*\(barcode*\/\)\///' | sed -e 's/\.fastq$//'`
-
-# 		assemblyID=`echo "$draftAssembly" | sed -e 's/^.*Assembly\///' | sed -e 's/\/assembly.fastq$//'`
-# 	 # /software/quast-v5.0.2/quast.py <input files> -t 8 -o <outdir> -r <refgenome> <files_with_contigs>
-
-# 		/software/quast-v5.0.2/quast.py -t 8 -o /home3/dd87a/"$project"/draftAssembly/"$assemblyID"/ -r "$refgenome" 
-
-# done
-
-
-##### ### ALIGN DE NOVO ASSEMBLIES TO REFERENCE TO CHECK QUALITY OF THE DE NOVO ###assembly
-
-##### Individually
-
-# for assembly in /home3/dd87a/"$project"/draftAssembly/*/assembly.fasta;
-
-# do 
-
-# 	sampleID=`echo "$assembly" | sed -e 's/^.*Assembly\///' | sed -e 's/Chop.*.fasta$//'`
-# 	cat "$assembly" /home3/dd87a/NC_013590.fa > /home3/dd87a/"$project"/draftAssembly/"$sampleID"Merged.fasta
-# 	mafft /home3/dd87a/"$project"/draftAssembly/"$sampleID"Merged.fasta > /home3/dd87a/"$project"/draftAssembly/"$sampleID"Aligned.fasta
-
-# done
-
-##### Align all
-
-for assembly in /home3/dd87a/"$project"/draftAssembly/*Assembly.fastq;
-
-# Need to label contigs in the assemblies otherwise Medaka throws an error as they are all labelled "contig**" for each sample - many duplicates.
-
-do 
-	sampleID=`echo "$assembly" | sed -e 's/^.*Assembly\///' | sed -e 's/Assembly.*.fastq$//'`
-	sed "s/>contig/>${sampleID}contig/" "$assembly" > /home3/dd87a/"$project"/draftAssembly/"$sampleID"LabAsmbl.fastq 
-
-done
-
-cat /home3/dd87a/"$project"/draftAssembly/*LabAsmbl.fastq /home3/dd87a/NC_013590.fa > /home3/dd87a/"$project"/draftAssembly/allsamplesMerged.fasta
-mafft /home3/dd87a/"$project"/draftAssembly/allsamplesMerged.fasta > /home3/dd87a/"$project"/draftAssembly/allsamplesAligned.fasta
-
-
-### RUN QC REPORT FOR EACH BARCODE POST ASSEMBLY
-
-# for algn in /home3/dd87a/"$project"/assemblies/*.bam ; 
-
-# do
-
-#         algnName=`echo "$algn" | sed -e 's/\.bam$//'`
-#         NanoStat --bam "$algn" --outdir /home3/dd87a/"$project"/statreport -n "$algnName".txt        
-
-
-# done
-
-
-##### POLISH WITH MEDAKA AND CREATE CONSENSUS SEQUENCE #####
-
-mkdir /home3/dd87a/"$project"/medaka
-
-for folder in /home3/dd87a/"$project"/porechop/*/;
-# /home3/dd87a/"$project"/porechop/*/*Chop*.fastq
-do
-
-    folderName=`echo "$folder" | sed -e 's/^.*\(trim\)\///'| sed -e 's/\/$//'`
-    sampleID=`echo "$folder"/*Chop*.fastq | sed -e 's/^.*trim\/barcode...\///' | sed -e 's/\.fastq$//'`
-
-    mkdir /home3/dd87a/"$project"/medaka/"$sampleID";
-
-	medaka_consensus -i /home3/dd87a/"$project"/porechop/"$folderName"/"$sampleID".fastq -d /home3/dd87a/"$project"/draftAssembly/"$sampleID"/assembly.fasta -o /home3/dd87a/"$project"/medaka/"$sampleID" -t 8 -m r941_min_high_g360
-
-
-done
-
-for consensus in /home3/dd87a/"$project"/medaka/consensus/*consensus.fasta;
-
-do 
-        sampleID=`echo "$consensus" | sed -e 's/^.*consensus\///' | sed -e 's/consensus.fasta$//'`
-        echo "$sampleID"
-# change "contig" label to "sampleID_contig"    
-        sed "s/>contig/>${sampleID}contig/" "$consensus" > /home3/dd87a/"$project"/medaka/"$sampleID"LabCons.fasta 
-
-done
-
-
-# All merged and labelled, then rename the refseq without punctuation
-cat /home3/dd87a/"$project"/medaka/*.fasta "$refseq" > /home3/dd87a/"$project"/medaka/allMergedLab.fasta
-sed 's/>ref.*/>NC013590/1' /home3/dd87a/"$project"/medaka/allMergedLab.fasta > /home3/dd87a/"$project"/medaka/allMergedLab_edit.fasta 
-
-
-
-### Rename concatenated consensus
-# sed 's/>ref.*/>NC013590/1' /home3/dd87a/fhv_02aug23/assemblies/allMerged.fasta > /home3/dd87a/fhv_02aug23/assemblies/allMerged_edit.fasta 
-# mafft /home3/dd87a/fhv_02aug23/medaka/consensus/ > /home3/dd87a/fhv_02aug23/medaka/allAligned.fasta
-
-##### QUALITY ASSESS WITH MEDAKA ???? ######
-
-
-
-
-##### VARIANT ANALYSIS USING MEDAKA VARIANT CALLER  ######
-
-for folder in /home3/dd87a/"$project"/porechop/*/;
-# /home3/dd87a/"$project"/porechop/*/*Chop*.fastq
-do
-
-    folderName=`echo "$folder" | sed -e 's/^.*\(trim\)\///'| sed -e 's/\/$//'`
-    sampleID=`echo "$folder"/*Chop*.fastq | sed -e 's/^.*trim\/barcode...\///' | sed -e 's/\.fastq$//'`
-
-    medaka_haploid_variant -i /home3/dd87a/"$project"/porechop/"$folderName"/"$sampleID".fastq -r "$project"/"$refseq" -o /home3/dd87a/"$project"/medaka/"$sampleID"VC
-
-done
-
-##### RENAME ALL MEDAKA OUTPUT FILES CONSENSUS AND VC  ######
-
-##### CONSENSUS  ######
-
-for filename in /home3/dd87a/"$project"/medaka/*Chop/* ; 
-
-	do
-
-		sampleID=`echo "$filename" | sed -e 's/^.*\(barcode\)/bc/'| sed -e 's/Chop.*\/.*$//'`
-		filepath=`echo "$filename" | sed -e "s/Chop\/.*$/Chop\//"`
-		filename2=`echo "$filename" | sed -e "s/^.*Chop\///"`
-
-		mv "$filename" "$filepath"/"$sampleID"_"$filename2";
-
-	done
-
-##### VC  ######
-
-for filename in /home3/dd87a/"$project"/medaka/*ChopVC/* ; 
-
-	do
-
-		sampleID=`echo "$filename" | sed -e 's/^.*\(barcode\)/bc/'| sed -e 's/Chop.*\/.*$//'`
-		filepath=`echo "$filename" | sed -e "s/ChopVC\/.*$/ChopVC\//"`
-		filename2=`echo "$filename" | sed -e "s/^.*ChopVC\///"`
-
-		mv "$filename" "$filepath"/"$sampleID"_"$filename2";
-
-	done		
-
-##### ### MINIASM PIPELINE FOR ASSEMBLY ###
-
-# map reads to themselves
-
+    
 for filename in /home3/dd87a/"$project"/porechop/*_mapped.fastq  ; 
 
     do
@@ -370,15 +191,9 @@ for filename in /home3/dd87a/"$project"/porechop/*_mapped.fastq  ;
 
 
 
-##### MAXIMUM LIKELIHOOD TREE OF CONSENSUS GENOMES  ######
-
-### needs to have all consensus seqs and ref genome concatenated into a single FASTA file.
-
-
-#/software/raxml-ng-1.0.2/bin/raxml-ng-mpi --search1 --msa fhvGenbank_alignStripped --model GTR+G
-
-} > medakaPipelineLog_"$dateStamp".txt
 
 
 
 
+
+} > miniasmPipelineLog_"$dateStamp".txt

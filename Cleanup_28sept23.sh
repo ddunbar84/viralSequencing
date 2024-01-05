@@ -15,7 +15,7 @@ minimap2 -ax map-ont fhv_02aug23/NC_013590.fa /home3/dd87a/fhv_02aug23/demulti_t
 
 # Filter minimum read length
 
-/software/bbmap-v38.90/reformat.sh in=fhv_02aug23/demulti_trim/barcode01/barcode01_mapped.fastq  out=fhv_02aug23/demulti_trim/barcode01/barcode01_mappedF.fastq  minlength=200
+# /software/bbmap-v38.90/reformat.sh in=fhv_02aug23/demulti_trim/barcode01/barcode01_mapped.fastq  out=fhv_02aug23/demulti_trim/barcode01/barcode01_mappedF.fastq  minlength=200
 
 ### For script - need to concat files and reference and then align - if looking at the ref mapped assembly AND have run a samtools consensus!!!
 
@@ -52,9 +52,9 @@ minimap2 -ax asm5 fhv_02aug23/NC_013590.fa /home3/dd87a/fhv_02aug23/medaka/minia
 
 /software/samtools-v1.16.1/bin/samtools index fhv_02aug23/assemblies/miniasmwgbc01asm10.bam
 
-# call consensus
-
-/software/samtools-v1.16.1/bin/samtools consensus -f fastq fhv_02aug23/assemblies/miniasmwgbc01asm10.bam -o fhv_02aug23/assemblies/miniasmCons_bc01asm10.fastq
+#### !!!!! call consensus - RO said this is not doing what I thought it was! ####
+#
+# /software/samtools-v1.16.1/bin/samtools consensus -f fastq fhv_02aug23/assemblies/miniasmwgbc01asm10.bam -o fhv_02aug23/assemblies/miniasmCons_bc01asm10.fastq
 
 # /software/samtools-v1.16.1/bin/samtools consensus -f fastq /home3/dd87a/fhv_02aug23/assemblies/"$folderName"RA.bam -o /home3/dd87a/fhv_02aug23/assemblies/miniasm_fullCons.fastq
 
