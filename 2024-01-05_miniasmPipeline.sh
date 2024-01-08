@@ -53,9 +53,10 @@ dateStamp=date +%d%m%y
 
 ##### ### BASECALLING ###
 
-##### BASECALL ON GPU
+##### BASECALL ON GPU - UPDATED GUPPY VERSION AND ADDED CONFIG FILE 08/01/24
 
 # /software/ont-guppy-GPU-v4.5.3/bin/guppy_basecaller --input_path /home3/dd87a/"$project"/allFast5 --save_path /home3/dd87a/"$project"/basecalled --flowcell FLO-MIN106 --kit SQK-RBK110-96 -x "cuda:0"
+/software/ont-guppy-GPU-v6.5.7/bin/guppy_basecaller --input_path /home3/dd87a/"$project"/allFast5 --save_path /home3/dd87a/"$project"/basecalled -c dna_r9.4.1_450bps_hac.cfg -x "cuda:0"
 
 # ##### ### DEMULTIPLEXING ###
 
@@ -82,7 +83,7 @@ cp -R /home3/dd87a/"$project"/demulti_trim /home3/dd87a/"$project"/demulti_trim_
 
  done
 
-##### ### ASSESS READ QUALITY AND TRIM POOR QUALITY READS ###
+##### ### ASSESS READ QUALITY AND TRIM POOR QUALITY READS ### WORKING 08/01/24
 
 ### Use porechop to assess read quality and trim the poor quality reads
 ### requires input dir, output file and flag to discard reads with adapters in the middle (this is required for nanopolish)
@@ -91,7 +92,9 @@ for folder in /home3/dd87a/"$project"/demulti_trim/*/ ;
 
 do
 
-    folderName=`echo "$folder" | sed -e 's/^.*\(trim\)\///'| sed -e 's/\/$//'`
+    folderName=`echo "$folder" | sed -E 's/^.*(trim)\///'| sed -E 's/\/$//'`
+    #folderName=`echo "$folder" | sed -E 's/^.*\(trim\)\///'| sed -E 's/\/$//'`
+    #folderName=`echo "$folder" | sed -e 's/^.*\/*trim\///'| sed -e 's/\/$//'`
 
     /software/Porechop-v0.2.4/porechop-runner.py -i "$folder" -o /home3/dd87a/"$project"/porechop/"$folderName"Chop.fastq --discard_middle
 
@@ -103,13 +106,13 @@ for sample in /home3/dd87a/"$project"/porechop/*Chop.fastq ;
 
 do
 
-    folderName=`echo "$sample" | sed -e 's/^.*\(barcode*\/\)\///'| sed -e 's/\.fastq$//'`
+    folderName=`echo "$sample" | sed -e 's/^.*\(barcode..\/\)\///'| sed -e 's/\.fastq$//'`
         
     NanoStat --fastq "$sample" --outdir /home3/dd87a/"$project"/statreport/ -n "$folderName"postChop.txt
 
 done
 
-##### ### FILTER READS AND MAP READS TO REFERENCE ->   MAPPED READS TO FOLDER FOR DE NOVO DRAFT ASSEMBLY ( Minimap used as a filter, not to create a mapped assembly ) ###
+##### ### FILTER READS BY THOSE THAT MAP TO THE REFERENCE, REFORMAT SAM FILE TO FASTQ ###
 
 ##### use minimap2 to map reads to reference genome
 
@@ -117,7 +120,7 @@ done
 # -bS output to BAM, compatibitity check          -F exclude FLAG'd alignments mapping reads
 # -o output file 
 
-for sample in /home3/dd87a/"$project"/porechop/;
+for sample in /home3/dd87a/"$project"/porechop/*.fastq;
 
 do
 
@@ -144,6 +147,9 @@ do
 
 done  
 
+##### ### FILTER READS BY THOSE THAT MAP TO THE REFERENCE, REFORMAT SAM FILE TO FASTQ ###
+
+##### use minimap2 to map reads to themselves, then use miniasm to build high confidence contigs (unitigs), convert to fasta then generate a consensus using Medaka. These will need checked against the reference genome and I still need to find a tool to get a consensus out of the untigs!?!?!?
     
 for filename in /home3/dd87a/"$project"/porechop/*_mapped.fastq  ; 
 

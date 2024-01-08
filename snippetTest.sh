@@ -26,31 +26,38 @@ refseq=$2 # Refseqs for project should be stored in the project folder level
 ##### ACTIVATE "ont" CONDA ENV - NEEDED FOR DATA PROCESSING STEPS
 source /home3/dd87a/miniconda3/bin/activate ont
 
-mkdir /home3/dd87a/"$project"/basecalled;
-mkdir /home3/dd87a/"$project"/demulti_trim;
-mkdir /home3/dd87a/"$project"/assemblies;
-mkdir /home3/dd87a/"$project"/draftAssembly;
-mkdir /home3/dd87a/"$project"/statreport/;
+#mkdir /home3/dd87a/"$project"/basecalled;
+#mkdir /home3/dd87a/"$project"/demulti_trim;
+#mkdir /home3/dd87a/"$project"/assemblies;
+#mkdir /home3/dd87a/"$project"/draftAssembly;
+#mkdir /home3/dd87a/"$project"/statreport/;
 mkdir /home3/dd87a/"$project"/porechop/;
-mkdir /home3/dd87a/"$project"/miniasm/;
+#mkdir /home3/dd87a/"$project"/miniasm/;
 
 
 ################ PASTE SNIPPET HERE ################
 
-for sample in /home3/dd87a/"$project"/porechop/*.fastq ; 
+for folder in /home3/dd87a/"$project"/demulti_trim/*/ ;
 
 do
 
-	sample=`echo "$sample" | sed -e 's/^.*porechop\///' | sed -e 's/\.fastq$//'`
+    folderName=`echo "$folder" | sed -E 's/^.*(trim)\///'| sed -E 's/\/$//'`
 
-    sampleID=`echo "$sample" | sed -e 's/^.*\/barcode..\///' | sed -e 's/_mapped\.fastq$//'`
-       
-    /software/flye-v2.9.1/bin/flye --nano-hq "$sample"_mapped.fastq --out-dir /home3/dd87a/"$project"/draftAssembly/"$sampleID" --genome-size=135000 --iterations 4
+    /software/Porechop-v0.2.4/porechop-runner.py -i "$folder" -o /home3/dd87a/"$project"/porechop/"$folderName"Chop.fastq --discard_middle
 
 done
 
+# ##### ### RUN QC REPORT FOR EACH BARCODE POST PORECHOP ###
 
+for sample in /home3/dd87a/"$project"/porechop/*Chop.fastq ; 
 
+do
+
+    folderName=`echo "$sample" | sed -e 's/^.*\(barcode..\/\)\///'| sed -e 's/\.fastq$//'`
+        
+    NanoStat --fastq "$sample" --outdir /home3/dd87a/"$project"/statreport/ -n "$folderName"postChop.txt
+
+done
 
 } > snippetTestLog.txt
 
